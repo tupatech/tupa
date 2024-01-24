@@ -1,5 +1,5 @@
 package tupa
 
-type ApiError struct {
+type APIError struct {
 	Error string
 }

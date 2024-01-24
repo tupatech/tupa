@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 type Controller struct{}
@@ -31,7 +32,7 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 	w.Header().Set("Content-Type", "application/json")
 
 	if w == nil {
-		return errors.New("Response writer passado está nulo")
+		return errors.New("response writer passado está nulo")
 	}
 
 	w.WriteHeader(status)
@@ -41,7 +42,7 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 func MakeHTTPHandlerFuncHelper(f APIFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := f(w, r); err != nil {
-			if err := WriteJSONHelper(w, http.StatusInternalServerError, ApiError{Error: err.Error()}); err != nil {
+			if err := WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: err.Error()}); err != nil {
 				fmt.Println("Erro ao escrever resposta JSON:", err)
 			}
 		}
@@ -55,5 +56,17 @@ func RegisterRoutes(router *mux.Router, route string, methods []string, handler 
 }
 
 func (a *APIServer) New() {
+	router := mux.NewRouter()
+	http.Handle("/", router)
+	fmt.Println(FmtBlue("Servidor iniciado na porta: " + a.listenAddr))
 
+	routerHandler := cors.Default().Handler(router)
+	http.ListenAndServe(a.listenAddr, routerHandler)
+}
+
+func NewApiServer(listenAddr string) *APIServer {
+	return &APIServer{
+		listenAddr: listenAddr,
+		// store:      store,
+	}
 }
