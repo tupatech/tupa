@@ -1,11 +1,16 @@
 package tupa
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -13,11 +18,12 @@ import (
 
 type Controller struct{}
 
-type APIFunc func(http.ResponseWriter, *http.Request) error
+type APIFunc func(context.Context, http.ResponseWriter, *http.Request) error
 
 type APIServer struct {
 	listenAddr string
 	router     *mux.Router
+	server     *http.Server
 }
 
 type HTTPMethod string
@@ -45,13 +51,35 @@ func (a *APIServer) New() {
 		a.router.HandleFunc("/", WelcomeHandler).Methods(http.MethodGet)
 	}
 
-	fmt.Println(FmtBlue("Servidor iniciado na porta: " + a.listenAddr))
-
 	routerHandler := cors.Default().Handler(a.router)
 
-	if err := http.ListenAndServe(a.listenAddr, routerHandler); err != nil {
-		log.Fatal(FmtRed("Erro ao iniciar servidor: "), err)
+	a.server = &http.Server{
+		Addr:    a.listenAddr,
+		Handler: routerHandler,
 	}
+
+	fmt.Println(FmtBlue("Servidor iniciado na porta: " + a.listenAddr))
+
+	go func() {
+		if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(FmtRed("Erro ao iniciar servidor: "), err)
+		}
+		log.Println(FmtYellow("Servidor parou de receber novas conexões"))
+	}()
+
+	signchan := make(chan os.Signal, 1)
+	signal.Notify(signchan, syscall.SIGINT, syscall.SIGTERM)
+	<-signchan
+
+	ctx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownRelease()
+
+	if err := a.server.Shutdown(ctx); err != nil {
+		log.Fatal(FmtRed("Erro ao desligar servidor: "), err)
+	}
+
+	fmt.Println(FmtYellow("Servidor encerrado na porta: " + a.listenAddr))
+
 }
 
 func NewApiServer(listenAddr string) *APIServer {
@@ -86,7 +114,7 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 	w.Header().Set("Content-Type", "application/json")
 
 	if w == nil {
-		return errors.New("response writer passado está nulo")
+		return errors.New("Response writer passado está nulo")
 	}
 
 	w.WriteHeader(status)
@@ -95,8 +123,9 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 
 func (c *Controller) MakeHTTPHandlerFuncHelper(f APIFunc, httpMethod HTTPMethod) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		if r.Method == string(httpMethod) {
-			if err := f(w, r); err != nil {
+			if err := f(ctx, w, r); err != nil {
 				if err := WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: err.Error()}); err != nil {
 					fmt.Println("Erro ao escrever resposta JSON:", err)
 				}
