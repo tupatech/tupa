@@ -22,7 +22,7 @@ type APIFunc func(context.Context, http.ResponseWriter, *http.Request) error
 
 type APIServer struct {
 	listenAddr string
-	router     *mux.Router
+	Router     *mux.Router
 	server     *http.Server
 }
 
@@ -47,11 +47,11 @@ var AllowedMethods = map[HTTPMethod]bool{
 
 func (a *APIServer) New() {
 
-	if a.router.GetRoute("/") == nil {
-		a.router.HandleFunc("/", WelcomeHandler).Methods(http.MethodGet)
+	if a.Router.GetRoute("/") == nil {
+		a.Router.HandleFunc("/", WelcomeHandler).Methods(http.MethodGet)
 	}
 
-	routerHandler := cors.Default().Handler(a.router)
+	routerHandler := cors.Default().Handler(a.Router)
 
 	a.server = &http.Server{
 		Addr:    a.listenAddr,
@@ -69,7 +69,7 @@ func (a *APIServer) New() {
 
 	signchan := make(chan os.Signal, 1)
 	signal.Notify(signchan, syscall.SIGINT, syscall.SIGTERM)
-	<-signchan
+	<-signchan // vai esperar um comando que encerra o servidor
 
 	ctx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownRelease()
@@ -85,7 +85,7 @@ func (a *APIServer) New() {
 func NewApiServer(listenAddr string) *APIServer {
 	return &APIServer{
 		listenAddr: listenAddr,
-		router:     mux.NewRouter(),
+		Router:     mux.NewRouter(),
 		// store:      store,
 	}
 }
@@ -93,7 +93,7 @@ func NewApiServer(listenAddr string) *APIServer {
 func (a *APIServer) SetDefaultRoute(handlers map[HTTPMethod]APIFunc) {
 	defController := Controller{}
 	for method, handler := range handlers {
-		a.router.HandleFunc("/", defController.MakeHTTPHandlerFuncHelper(handler, method)).Methods(string(method))
+		a.Router.HandleFunc("/", defController.MakeHTTPHandlerFuncHelper(handler, method)).Methods(string(method))
 	}
 }
 
