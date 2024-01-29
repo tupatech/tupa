@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -28,6 +29,15 @@ type APIServer struct {
 
 type HTTPMethod string
 
+type DefaultController struct {
+	router *mux.Router
+}
+
+var (
+	globalRouter     *mux.Router
+	globalRouterOnce sync.Once
+)
+
 const (
 	MethodGet     HTTPMethod = http.MethodGet
 	MethodPost    HTTPMethod = http.MethodPost
@@ -46,12 +56,13 @@ var AllowedMethods = map[HTTPMethod]bool{
 }
 
 func (a *APIServer) New() {
+	globalRouter = getGlobalRouter()
 
-	if a.Router.GetRoute("/") == nil {
-		a.Router.HandleFunc("/", WelcomeHandler).Methods(http.MethodGet)
+	if globalRouter.GetRoute("/") == nil {
+		globalRouter.HandleFunc("/", WelcomeHandler).Methods(http.MethodGet)
 	}
 
-	routerHandler := cors.Default().Handler(a.Router)
+	routerHandler := cors.Default().Handler(globalRouter)
 
 	a.server = &http.Server{
 		Addr:    a.listenAddr,
@@ -79,21 +90,18 @@ func (a *APIServer) New() {
 	}
 
 	fmt.Println(FmtYellow("Servidor encerrado na porta: " + a.listenAddr))
-
 }
 
 func NewApiServer(listenAddr string) *APIServer {
 	return &APIServer{
 		listenAddr: listenAddr,
-		Router:     mux.NewRouter(),
 		// store:      store,
 	}
 }
 
-func (a *APIServer) SetDefaultRoute(handlers map[HTTPMethod]APIFunc) {
-	defController := Controller{}
+func (dc *DefaultController) SetDefaultRoute(handlers map[HTTPMethod]APIFunc) {
 	for method, handler := range handlers {
-		a.Router.HandleFunc("/", defController.MakeHTTPHandlerFuncHelper(handler, method)).Methods(string(method))
+		dc.router.HandleFunc("/", dc.MakeHTTPHandlerFuncHelper(handler, method)).Methods(string(method))
 	}
 }
 
@@ -101,12 +109,12 @@ func WelcomeHandler(w http.ResponseWriter, r *http.Request) {
 	WriteJSONHelper(w, http.StatusOK, "Seja bem vindo ao Tupã framework!")
 }
 
-func (c *Controller) RegisterRoutes(router *mux.Router, route string, handlers map[HTTPMethod]APIFunc) {
+func (dc *DefaultController) RegisterRoutes(router *mux.Router, route string, handlers map[HTTPMethod]APIFunc) {
 	for method, handler := range handlers {
 		if !AllowedMethods[method] {
 			log.Fatal(fmt.Sprintf(FmtRed("Método HTTP não permitido: "), "%s\nVeja como criar um novo método na documentação", method))
 		}
-		router.HandleFunc(route, c.MakeHTTPHandlerFuncHelper(handler, method)).Methods(string(method))
+		dc.router.HandleFunc(route, dc.MakeHTTPHandlerFuncHelper(handler, method)).Methods(string(method))
 	}
 }
 
@@ -121,7 +129,7 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 	return json.NewEncoder(w).Encode(v)
 }
 
-func (c *Controller) MakeHTTPHandlerFuncHelper(f APIFunc, httpMethod HTTPMethod) http.HandlerFunc {
+func (dc *DefaultController) MakeHTTPHandlerFuncHelper(f APIFunc, httpMethod HTTPMethod) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		if r.Method == string(httpMethod) {
@@ -134,4 +142,15 @@ func (c *Controller) MakeHTTPHandlerFuncHelper(f APIFunc, httpMethod HTTPMethod)
 			WriteJSONHelper(w, http.StatusMethodNotAllowed, APIError{Error: "Método HTTP não permitido"})
 		}
 	}
+}
+
+func NewController() *DefaultController {
+	return &DefaultController{router: getGlobalRouter()}
+}
+
+func getGlobalRouter() *mux.Router {
+	globalRouterOnce.Do(func() {
+		globalRouter = mux.NewRouter()
+	})
+	return globalRouter
 }
