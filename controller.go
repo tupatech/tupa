@@ -109,7 +109,7 @@ func WelcomeHandler(w http.ResponseWriter, r *http.Request) {
 	WriteJSONHelper(w, http.StatusOK, "Seja bem vindo ao Tupã framework!")
 }
 
-func (dc *DefaultController) RegisterRoutes(router *mux.Router, route string, handlers map[HTTPMethod]APIFunc) {
+func (dc *DefaultController) RegisterRoutes(route string, handlers map[HTTPMethod]APIFunc) {
 	for method, handler := range handlers {
 		if !AllowedMethods[method] {
 			log.Fatal(fmt.Sprintf(FmtRed("Método HTTP não permitido: "), "%s\nVeja como criar um novo método na documentação", method))
