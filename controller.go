@@ -180,3 +180,7 @@ func (tc *TupaContext) SendString(status int, s string) error {
 	_, err := (tc.response).Write([]byte(s))
 	return err
 }
+
+func (tc *TupaContext) Param(param string) string {
+	return mux.Vars(tc.request)[param]
+}

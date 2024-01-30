@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 func BenchmarkDirectAccessSendString(b *testing.B) {
@@ -26,4 +28,45 @@ func BenchmarkDirectAccessSendString(b *testing.B) {
 	elapsed := time.Since(start)
 	opsPerSec := float64(b.N) / elapsed.Seconds()
 	b.ReportMetric(opsPerSec, "ops/sec")
+}
+
+func TestParam(t *testing.T) {
+	t.Run("Teste método Param com parametro", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users/123", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Colocando um parametro na rota da requisição
+		req = mux.SetURLVars(req, map[string]string{
+			"id": "123",
+		})
+
+		tc := &TupaContext{
+			request: req,
+		}
+
+		got := tc.Param("id")
+		want := "123"
+		if got != want {
+			t.Errorf("Parametro retornado %s, queria %s", got, want)
+		}
+	})
+
+	t.Run("Teste método Param sem parametro", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users/123", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			request: req,
+		}
+
+		got := tc.Param("id")
+		want := ""
+		if got != want {
+			t.Errorf("Parametro retornado %s, queria %s", got, want)
+		}
+	})
 }
