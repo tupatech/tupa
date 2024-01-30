@@ -17,20 +17,25 @@ import (
 	"github.com/rs/cors"
 )
 
-type Controller struct{}
+type (
+	Context interface {
+		Request() *http.Request
+		Response() http.ResponseWriter
+		SendString(status int, s string) error
+	}
 
-type APIFunc func(context.Context, http.ResponseWriter, *http.Request) error
+	TupaContext struct {
+		request  *http.Request
+		response http.ResponseWriter
+		context.Context
+	}
+)
+
+type APIFunc func(*TupaContext) error
 
 type APIServer struct {
 	listenAddr string
-	Router     *mux.Router
 	server     *http.Server
-}
-
-type HTTPMethod string
-
-type DefaultController struct {
-	router *mux.Router
 }
 
 var (
@@ -46,6 +51,10 @@ const (
 	MethodPatch   HTTPMethod = http.MethodPatch
 	MethodOptions HTTPMethod = http.MethodOptions
 )
+
+type DefaultController struct {
+	router *mux.Router
+}
 
 var AllowedMethods = map[HTTPMethod]bool{
 	MethodGet:    true,
@@ -131,9 +140,12 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 
 func (dc *DefaultController) MakeHTTPHandlerFuncHelper(f APIFunc, httpMethod HTTPMethod) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+		ctx := &TupaContext{
+			request:  r,
+			response: w,
+		}
 		if r.Method == string(httpMethod) {
-			if err := f(ctx, w, r); err != nil {
+			if err := f(ctx); err != nil {
 				if err := WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: err.Error()}); err != nil {
 					fmt.Println("Erro ao escrever resposta JSON:", err)
 				}
@@ -153,4 +165,18 @@ func getGlobalRouter() *mux.Router {
 		globalRouter = mux.NewRouter()
 	})
 	return globalRouter
+}
+
+func (tc *TupaContext) Request() *http.Request {
+	return tc.request
+}
+
+func (tc *TupaContext) Response() *http.ResponseWriter {
+	return &tc.response
+}
+
+func (tc *TupaContext) SendString(status int, s string) error {
+	(tc.response).WriteHeader(status)
+	_, err := (tc.response).Write([]byte(s))
+	return err
 }
