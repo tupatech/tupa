@@ -22,6 +22,7 @@ type (
 		Request() *http.Request
 		Response() http.ResponseWriter
 		SendString(status int, s string) error
+		Param(param string) string
 	}
 
 	TupaContext struct {
@@ -118,22 +119,35 @@ func WelcomeHandler(w http.ResponseWriter, r *http.Request) {
 	WriteJSONHelper(w, http.StatusOK, "Seja bem vindo ao Tupã framework!")
 }
 
-func (dc *DefaultController) RegisterRoutes(route string, handlers map[HTTPMethod]APIFunc) {
+func (dc *DefaultController) RegisterRoutes(route string, handlers map[HTTPMethod]APIFunc, middlewares ...MiddlewareChain) {
 	for method, handler := range handlers {
 		if !AllowedMethods[method] {
-			log.Fatal(fmt.Sprintf(FmtRed("Método HTTP não permitido: "), "%s\nVeja como criar um novo método na documentação", method))
+			log.Fatalf(fmt.Sprintf(FmtRed("Método HTTP não permitido: "), "%s\nVeja como criar um novo método na documentação", method))
 		}
-		dc.router.HandleFunc(route, dc.MakeHTTPHandlerFuncHelper(handler, method)).Methods(string(method))
+
+		// especificando chain de middlewares que devem ser executadas antes do handler de uma rota particular
+		// Na Chain of responsibility, a request é passada pela cadeia de handlers, onde cada handler pode fazer um processamento ou modificação
+		chainHandler := func(tc *TupaContext) error {
+			for _, middlewareChain := range middlewares {
+				if err := middlewareChain.execute(tc); err != nil {
+					return err
+				}
+			}
+
+			// depois da middleware chain ser processada, chama o handler original
+			return handler(tc)
+		}
+
+		dc.router.HandleFunc(route, dc.MakeHTTPHandlerFuncHelper(chainHandler, method)).Methods(string(method))
 	}
 }
 
 func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
-	w.Header().Set("Content-Type", "application/json")
-
 	if w == nil {
 		return errors.New("Response writer passado está nulo")
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	return json.NewEncoder(w).Encode(v)
 }
