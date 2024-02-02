@@ -100,7 +100,7 @@ func TestLoggingMiddlewareWithError(t *testing.T) {
 	testMiddlewareWithErrorController := &TestController{NewController()}
 	testMiddlewareWithErrorController.RegisterRoutes("/error", map[HTTPMethod]APIFunc{
 		MethodGet: func(tc *TupaContext) error {
-			return tc.SendString(http.StatusInternalServerError, errMsg.Error())
+			return tc.SendString(errMsg.Error())
 		},
 	}, testMiddlewareWithError)
 

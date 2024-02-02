@@ -189,9 +189,8 @@ func (tc *TupaContext) Response() *http.ResponseWriter {
 	return &tc.response
 }
 
-func (tc *TupaContext) SendString(status int, s string) error {
-	(tc.response).WriteHeader(status)
-	_, err := (tc.response).Write([]byte(s))
+func (tc *TupaContext) SendString(s string) error {
+	_, err := tc.response.Write([]byte(s))
 	return err
 }
 

@@ -22,7 +22,7 @@ func BenchmarkDirectAccessSendString(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		ctx.SendString(http.StatusOK, "Hello, World!")
+		ctx.SendString("Hello, World!")
 	}
 
 	elapsed := time.Since(start)
