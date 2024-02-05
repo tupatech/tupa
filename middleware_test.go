@@ -98,9 +98,12 @@ func TestLoggingMiddlewareWithError(t *testing.T) {
 
 	errMsg := errors.New("erro no middleware LoggingMiddlewareWithError")
 	testMiddlewareWithErrorController := &TestController{NewController()}
-	testMiddlewareWithErrorController.RegisterRoutes("/error", map[HTTPMethod]APIFunc{
-		MethodGet: func(tc *TupaContext) error {
-			return tc.SendString(errMsg.Error())
+	testMiddlewareWithErrorController.RegisterRoutes("/error", []RouteInfo{
+		{
+			Method: "GET",
+			Handler: func(tc *TupaContext) error {
+				return tc.SendString(errMsg.Error())
+			},
 		},
 	}, testMiddlewareWithError)
 
