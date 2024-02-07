@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -21,7 +20,7 @@ type (
 	Context interface {
 		Request() *http.Request
 		Response() http.ResponseWriter
-		SendString(status int, s string) error
+		SendString(s string) error
 		Param(param string) string
 	}
 
@@ -35,14 +34,11 @@ type (
 type APIFunc func(*TupaContext) error
 
 type APIServer struct {
-	listenAddr string
-	server     *http.Server
+	listenAddr        string
+	server            *http.Server
+	globalMiddlewares MiddlewareChain
+	router            *mux.Router
 }
-
-var (
-	globalRouter     *mux.Router
-	globalRouterOnce sync.Once
-)
 
 const (
 	MethodGet     HTTPMethod = http.MethodGet
@@ -53,10 +49,6 @@ const (
 	MethodOptions HTTPMethod = http.MethodOptions
 )
 
-type DefaultController struct {
-	router *mux.Router
-}
-
 var AllowedMethods = map[HTTPMethod]bool{
 	MethodGet:    true,
 	MethodPost:   true,
@@ -66,13 +58,16 @@ var AllowedMethods = map[HTTPMethod]bool{
 }
 
 func (a *APIServer) New() {
-	globalRouter = getGlobalRouter()
-
-	if globalRouter.GetRoute("/") == nil {
-		globalRouter.HandleFunc("/", WelcomeHandler).Methods(http.MethodGet)
+	if a.router.GetRoute("/") == nil {
+		a.RegisterRoutes("/", []RouteInfo{
+			{
+				Method:  MethodGet,
+				Handler: WelcomeHandler,
+			},
+		}, a.globalMiddlewares)
 	}
 
-	routerHandler := cors.Default().Handler(globalRouter)
+	routerHandler := cors.Default().Handler(a.router)
 
 	a.server = &http.Server{
 		Addr:    a.listenAddr,
@@ -102,32 +97,39 @@ func (a *APIServer) New() {
 	fmt.Println(FmtYellow("Servidor encerrado na porta: " + a.listenAddr))
 }
 
-func NewApiServer(listenAddr string) *APIServer {
+func NewAPIServer(listenAddr string) *APIServer {
+	router := mux.NewRouter()
+
 	return &APIServer{
-		listenAddr: listenAddr,
-		// store:      store,
+		listenAddr:        listenAddr,
+		router:            router,
+		globalMiddlewares: MiddlewareChain{},
 	}
 }
 
-// func (dc *DefaultController) SetDefaultRoute(handlers map[HTTPMethod]APIFunc) {
-// 	for method, handler := range handlers {
-// 		dc.router.HandleFunc("/", dc.MakeHTTPHandlerFuncHelper(handler, method)).Methods(string(method))
-// 	}
-// }
-
-func WelcomeHandler(w http.ResponseWriter, r *http.Request) {
-	WriteJSONHelper(w, http.StatusOK, "Seja bem vindo ao Tupã framework!")
+func WelcomeHandler(tc *TupaContext) error {
+	WriteJSONHelper(tc.response, http.StatusOK, "Seja bem vindo ao Tupã framework!")
+	return nil
 }
 
-func (dc *DefaultController) RegisterRoutes(route string, routeInfos []RouteInfo, middlewares ...MiddlewareChain) {
+func (a *APIServer) RegisterRoutes(route string, routeInfos []RouteInfo, middlewares ...MiddlewareChain) {
 	for _, routeInfo := range routeInfos {
 		if !AllowedMethods[routeInfo.Method] {
 			log.Fatalf(fmt.Sprintf(FmtRed("Método HTTP não permitido: "), "%s\nVeja como criar um novo método na documentação", routeInfo.Method))
 		}
 
-		handler := dc.MakeHTTPHandlerFuncHelper(routeInfo, middlewares...)
+		var allMiddlewares MiddlewareChain
+		middlewaresGlobais := a.GetGlobalMiddlewares()
 
-		dc.router.HandleFunc(route, handler).Methods(string(routeInfo.Method))
+		allMiddlewares = append(allMiddlewares, middlewaresGlobais...)
+
+		for _, mc := range middlewares {
+			allMiddlewares = append(allMiddlewares, mc...)
+		}
+
+		handler := a.MakeHTTPHandlerFuncHelper(routeInfo, allMiddlewares, a.globalMiddlewares)
+
+		a.router.HandleFunc(route, handler).Methods(string(routeInfo.Method))
 	}
 }
 
@@ -138,23 +140,28 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
+
 	return json.NewEncoder(w).Encode(v)
 }
 
-func (dc *DefaultController) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo, middlewares ...MiddlewareChain) http.HandlerFunc {
+func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo, middlewares MiddlewareChain, globalMiddlewares MiddlewareChain) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := &TupaContext{
 			request:  r,
 			response: w,
 		}
 
-		// especificando chain de middlewares que devem ser executadas antes do handler de uma rota particular
-		// Na Chain of responsibility, a request é passada pela cadeia de handlers, onde cada handler pode fazer um processamento ou modificação
-		for _, middlewareChain := range middlewares {
-			if err := middlewareChain.execute(ctx); err != nil {
-				WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: err.Error()})
-				return
-			}
+		// Combina middlewares globais com os especificos de rota
+		allMiddlewares := MiddlewareChain{}
+		allMiddlewares = append(allMiddlewares, a.GetGlobalMiddlewares()...)
+		allMiddlewares = append(allMiddlewares, routeInfo.Middlewares...)
+
+		doneCh := a.executeMiddlewaresAsync(ctx, allMiddlewares)
+		errorsSlice := <-doneCh // espera até que algum valor seja recebido. Continua no primeiro erro recebido ( se houver ) ou se não houver nenhum erro
+
+		if len(errorsSlice) > 0 {
+			WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: errorsSlice[0].Error()})
+			return
 		}
 
 		if r.Method == string(routeInfo.Method) {
@@ -167,17 +174,6 @@ func (dc *DefaultController) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo, midd
 			WriteJSONHelper(w, http.StatusMethodNotAllowed, APIError{Error: "Método HTTP não permitido"})
 		}
 	}
-}
-
-func NewController() *DefaultController {
-	return &DefaultController{router: getGlobalRouter()}
-}
-
-func getGlobalRouter() *mux.Router {
-	globalRouterOnce.Do(func() {
-		globalRouter = mux.NewRouter()
-	})
-	return globalRouter
 }
 
 func (tc *TupaContext) Request() *http.Request {

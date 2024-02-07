@@ -7,6 +7,7 @@ type APIError struct {
 type HTTPMethod string
 
 type RouteInfo struct {
-	Method  HTTPMethod
-	Handler APIFunc
+	Method      HTTPMethod
+	Handler     APIFunc
+	Middlewares []MiddlewareFunc
 }

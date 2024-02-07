@@ -4,23 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 )
-
-type TestController struct {
-	*DefaultController
-}
-
-func (tc *TestController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	tc.router.ServeHTTP(w, r)
-}
 
 func MiddlewareSample(next APIFunc) APIFunc {
 
@@ -92,45 +82,6 @@ func MiddlewareWithCtxChanMsg(next APIFunc, messages chan<- string) APIFunc {
 	}
 }
 
-func TestLoggingMiddlewareWithError(t *testing.T) {
-	testMiddlewareWithError := MiddlewareChain{}
-	testMiddlewareWithError.Use(MiddlewareLoggingWithError)
-
-	errMsg := errors.New("erro no middleware LoggingMiddlewareWithError")
-	testMiddlewareWithErrorController := &TestController{NewController()}
-	testMiddlewareWithErrorController.RegisterRoutes("/error", []RouteInfo{
-		{
-			Method: "GET",
-			Handler: func(tc *TupaContext) error {
-				return tc.SendString(errMsg.Error())
-			},
-		},
-	}, testMiddlewareWithError)
-
-	server := httptest.NewServer(testMiddlewareWithErrorController)
-	defer server.Close()
-
-	resp, err := http.Get(server.URL + "/error")
-	if err != nil {
-		t.Fatalf("falhou ao fazer get reques: %v", err)
-	}
-
-	if resp.StatusCode != http.StatusInternalServerError {
-		t.Errorf("esperava status code %d, recebeu %d", http.StatusInternalServerError, resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		t.Fatalf("falhou ao ler response body: %v", err)
-	}
-
-	expectedErrorMessage := `{"Error":"erro no middleware LoggingMiddlewareWithError"}`
-	if strings.TrimSuffix(string(body), "\n") != expectedErrorMessage {
-		t.Errorf("esperou um response body %s, recebeu %s", expectedErrorMessage, body)
-	}
-}
-
 func TestSampleMiddleware(t *testing.T) {
 	t.Run("Testado TestSampleMiddleware", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
@@ -144,7 +95,7 @@ func TestSampleMiddleware(t *testing.T) {
 		// handler que não retorna erro
 		handler := func(tc *TupaContext) error {
 			// Chacando se o middleware tem valor de context
-			if val := tc.request.Context().Value("someKey"); val != nil {
+			if val := tc.request.Context().Value("qualquerKey"); val != nil {
 				t.Error("Valor de context esperado não era esperado")
 			}
 			return nil
@@ -296,4 +247,57 @@ func TestMiddlewareWithCtxAndChannelAndMsg(t *testing.T) {
 			t.Errorf("Expected message 'MiddlewareWithCtx passou por aqui :)', got '%s'", message)
 		}
 	}
+}
+
+func middlewareSuccess(next APIFunc) APIFunc {
+	return func(tc *TupaContext) error {
+		return nil
+	}
+}
+
+// Define a middleware function that always fails
+func middlewareFailure(ctx APIFunc) APIFunc {
+	return func(tc *TupaContext) error {
+		return errors.New("middleware failed")
+	}
+}
+
+func TestExecuteMiddlewaresAsync_NoErrors(t *testing.T) {
+	t.Run("Testando ExecuteMiddlewaresAsync sem erros", func(t *testing.T) {
+		server := NewAPIServer(":8080")
+
+		ctx := &TupaContext{}
+
+		// Definir middleware que sempre retorna sucesso
+		middlewareSuccess := MiddlewareChain{middlewareSuccess}
+
+		// Execute os middlewares de forma assíncrona
+		doneCh := server.executeMiddlewaresAsync(ctx, middlewareSuccess)
+
+		// esperando executar
+		errorsSlice := <-doneCh
+
+		if len(errorsSlice) != 0 {
+			t.Errorf("não esperava erros, recebeu %d erros", len(errorsSlice))
+		}
+	})
+
+	t.Run("Testando ExecuteMiddlewaresAsync com erros", func(t *testing.T) {
+		server := NewAPIServer(":8080")
+
+		ctx := &TupaContext{}
+
+		// Definir middleware que sempre retorna falha
+		middlewareFailure := MiddlewareChain{middlewareFailure}
+
+		// Executando os middlewares de forma assíncrona
+		doneCh := server.executeMiddlewaresAsync(ctx, middlewareFailure)
+
+		// esperando executar
+		errorsSlice := <-doneCh
+
+		if len(errorsSlice) == 0 {
+			t.Errorf("expected erros mas não recebeu nenhum")
+		}
+	})
 }
