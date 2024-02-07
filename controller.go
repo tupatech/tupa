@@ -57,14 +57,17 @@ var AllowedMethods = map[HTTPMethod]bool{
 	MethodPatch:  true,
 }
 
+var allRoutes []RouteInfo
+
 func (a *APIServer) New() {
 	if a.router.GetRoute("/") == nil {
-		a.RegisterRoutes("/", []RouteInfo{
+		a.RegisterRoutes([]RouteInfo{
 			{
+				Path:    "/",
 				Method:  MethodGet,
 				Handler: WelcomeHandler,
 			},
-		}, a.globalMiddlewares)
+		})
 	}
 
 	routerHandler := cors.Default().Handler(a.router)
@@ -112,7 +115,7 @@ func WelcomeHandler(tc *TupaContext) error {
 	return nil
 }
 
-func (a *APIServer) RegisterRoutes(route string, routeInfos []RouteInfo, middlewares ...MiddlewareChain) {
+func (a *APIServer) RegisterRoutes(routeInfos []RouteInfo) {
 	for _, routeInfo := range routeInfos {
 		if !AllowedMethods[routeInfo.Method] {
 			log.Fatalf(fmt.Sprintf(FmtRed("Método HTTP não permitido: "), "%s\nVeja como criar um novo método na documentação", routeInfo.Method))
@@ -123,13 +126,9 @@ func (a *APIServer) RegisterRoutes(route string, routeInfos []RouteInfo, middlew
 
 		allMiddlewares = append(allMiddlewares, middlewaresGlobais...)
 
-		for _, mc := range middlewares {
-			allMiddlewares = append(allMiddlewares, mc...)
-		}
-
 		handler := a.MakeHTTPHandlerFuncHelper(routeInfo, allMiddlewares, a.globalMiddlewares)
 
-		a.router.HandleFunc(route, handler).Methods(string(routeInfo.Method))
+		a.router.HandleFunc(routeInfo.Path, handler).Methods(string(routeInfo.Method))
 	}
 }
 
@@ -174,6 +173,22 @@ func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo, middlewares M
 			WriteJSONHelper(w, http.StatusMethodNotAllowed, APIError{Error: "Método HTTP não permitido"})
 		}
 	}
+}
+
+func AddRoutes(groupMiddlewares MiddlewareChain, routeFuncs ...func() []RouteInfo) {
+	for _, routeFunc := range routeFuncs {
+		routes := routeFunc()
+		for i := range routes {
+			routes[i].Middlewares = append(routes[i].Middlewares, groupMiddlewares...)
+		}
+		allRoutes = append(allRoutes, routes...)
+	}
+}
+
+func GetRoutes() []RouteInfo {
+	routesCopy := make([]RouteInfo, len(allRoutes))
+	copy(routesCopy, allRoutes)
+	return routesCopy
 }
 
 func (tc *TupaContext) Request() *http.Request {
