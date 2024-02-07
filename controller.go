@@ -22,6 +22,8 @@ type (
 		Response() http.ResponseWriter
 		SendString(s string) error
 		Param(param string) string
+		QueryParam(param string) string
+		QueryParams() map[string][]string
 	}
 
 	TupaContext struct {
@@ -206,4 +208,12 @@ func (tc *TupaContext) SendString(s string) error {
 
 func (tc *TupaContext) Param(param string) string {
 	return mux.Vars(tc.request)[param]
+}
+
+func (tc *TupaContext) QueryParam(param string) string {
+	return tc.request.URL.Query().Get(param)
+}
+
+func (tc *TupaContext) QueryParams() map[string][]string {
+	return tc.request.URL.Query()
 }

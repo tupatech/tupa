@@ -70,3 +70,78 @@ func TestParam(t *testing.T) {
 		}
 	})
 }
+
+func TestQueryParam(t *testing.T) {
+	t.Run("Teste método QueryParam com parametro", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users?name=Victor", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			request: req,
+		}
+
+		got := tc.QueryParam("name")
+		want := "Victor"
+		if got != want {
+			t.Errorf("parametro retornado %s, queria %s", got, want)
+		}
+	})
+
+	t.Run("Teste método QueryParam sem parametro", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			request: req,
+		}
+
+		got := tc.QueryParam("name")
+		want := ""
+		if got != want {
+			t.Errorf("parametro retornado %s, queria %s", got, want)
+		}
+	})
+}
+
+func TestQueryParams(t *testing.T) {
+	t.Run("Teste método QueryParams com parametro", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users?name=Victor&age=24", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			request: req,
+		}
+
+		got := tc.QueryParams()
+		want := map[string]string{
+			"name": "Victor",
+			"age":  "24",
+		}
+		if got["name"][0] != want["name"] || got["age"][0] != want["age"] {
+			t.Errorf("parametro retornado %v, queria %v", got, want)
+		}
+	})
+
+	t.Run("Teste método QueryParams sem parametro", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			request: req,
+		}
+
+		got := tc.QueryParams()
+		want := map[string][]string{}
+		if len(got) != len(want) {
+			t.Errorf("parametro retornado %v, queria %v", got, want)
+		}
+	})
+}
