@@ -211,9 +211,9 @@ func (tc *TupaContext) Param(param string) string {
 }
 
 func (tc *TupaContext) QueryParam(param string) string {
-	return tc.request.URL.Query().Get(param)
+	return tc.Request().URL.Query().Get(param)
 }
 
 func (tc *TupaContext) QueryParams() map[string][]string {
-	return tc.request.URL.Query()
+	return tc.Request().URL.Query()
 }
