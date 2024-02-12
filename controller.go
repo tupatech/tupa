@@ -217,3 +217,7 @@ func (tc *TupaContext) QueryParam(param string) string {
 func (tc *TupaContext) QueryParams() map[string][]string {
 	return tc.Request().URL.Query()
 }
+
+func (tc *TupaContext) SetRequest(r *http.Request) {
+	tc.request = r
+}
