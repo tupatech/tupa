@@ -2,6 +2,7 @@ package tupa
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,6 +33,11 @@ type GoogleDefaultResponse struct {
 	HostedDomain  string `json:"hd"`
 }
 
+type GoogleAuthResponse struct {
+	UserInfo GoogleDefaultResponse
+	Token    *oauth2.Token
+}
+
 func UseGoogleOauth(clientID, clientSecret, redirectURL string, scopes []string) {
 	googleOauthInitOnce.Do(func() {
 		GoogleOauthConfig.ClientID = clientID
@@ -60,10 +66,8 @@ func AuthGoogleHandler(tc *TupaContext) error {
 	return nil
 }
 
-func AuthGoogleCallback(w http.ResponseWriter, r *http.Request) []byte {
-
+func AuthGoogleCallback(w http.ResponseWriter, r *http.Request) (*GoogleAuthResponse, error) {
 	code := r.FormValue("code")
-
 	if code == "" {
 		w.Write([]byte("Usuário não aceitou a autenticação...\n"))
 		reason := r.FormValue("error_reason")
@@ -72,30 +76,36 @@ func AuthGoogleCallback(w http.ResponseWriter, r *http.Request) []byte {
 		}
 
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		return nil
-	} else {
-		token, err := GoogleOauthConfig.Exchange(context.Background(), code)
-		if err != nil {
-			fmt.Printf("Exchange do código falhou '%s'\n", err)
-			return nil
-		}
-
-		resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + url.QueryEscape(token.AccessToken))
-		if err != nil {
-			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-			return nil
-		}
-		defer resp.Body.Close()
-
-		response, err := io.ReadAll(resp.Body)
-		if err != nil {
-			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-			return nil
-		}
-		fmt.Println(string(response))
-
-		return response
+		return nil, nil
 	}
 
-	return nil
+	token, err := GoogleOauthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		fmt.Printf("Exchange do código falhou '%s'\n", err)
+		return nil, err
+	}
+
+	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + url.QueryEscape(token.AccessToken))
+	if err != nil {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return nil, nil
+	}
+	defer resp.Body.Close()
+
+	response, err := io.ReadAll(resp.Body)
+	if err != nil {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return nil, nil
+	}
+
+	var userInfo GoogleDefaultResponse
+	err = json.Unmarshal(response, &userInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return &GoogleAuthResponse{
+		UserInfo: userInfo,
+		Token:    token,
+	}, nil
 }
