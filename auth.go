@@ -41,7 +41,7 @@ func UseGoogleOauth(clientID, clientSecret, redirectURL string, scopes []string)
 	})
 }
 
-func HandleGoogleAuthLogin(tc *TupaContext) error {
+func AuthGoogleHandler(tc *TupaContext) error {
 	URL, err := url.Parse(GoogleOauthConfig.Endpoint.AuthURL)
 	if err != nil {
 		return fmt.Errorf("parse: %w", err)
@@ -60,7 +60,7 @@ func HandleGoogleAuthLogin(tc *TupaContext) error {
 	return nil
 }
 
-func CallbackGoogleAuth(w http.ResponseWriter, r *http.Request) []byte {
+func AuthGoogleCallback(w http.ResponseWriter, r *http.Request) []byte {
 
 	code := r.FormValue("code")
 
@@ -72,6 +72,7 @@ func CallbackGoogleAuth(w http.ResponseWriter, r *http.Request) []byte {
 		}
 
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return nil
 	} else {
 		token, err := GoogleOauthConfig.Exchange(context.Background(), code)
 		if err != nil {
