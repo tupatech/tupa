@@ -24,6 +24,8 @@ type (
 		Param(param string) string
 		QueryParam(param string) string
 		QueryParams() map[string][]string
+		SetRequest(r *http.Request)
+		SetResponse(w http.ResponseWriter)
 	}
 
 	TupaContext struct {
@@ -220,4 +222,15 @@ func (tc *TupaContext) QueryParams() map[string][]string {
 
 func (tc *TupaContext) SetRequest(r *http.Request) {
 	tc.request = r
+}
+
+func (tc *TupaContext) SetResponse(w http.ResponseWriter) {
+	tc.response = w
+}
+
+func (tc *TupaContext) NewTupaContext(w http.ResponseWriter, r *http.Request) *TupaContext {
+	return &TupaContext{
+		request:  r,
+		response: w,
+	}
 }
