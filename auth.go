@@ -70,7 +70,7 @@ func AuthGoogleCallback(w http.ResponseWriter, r *http.Request) (*GoogleAuthResp
 	code := r.FormValue("code")
 	if code == "" {
 		w.Write([]byte("Usuário não aceitou a autenticação...\n"))
-		reason := r.FormValue("error_reason")
+		reason := r.FormValue("error")
 		if reason == "user_denied" {
 			w.Write([]byte("Usuário negou a permissão..."))
 		}
