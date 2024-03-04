@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"golang.org/x/oauth2/linkedin"
 )
 
 var (
@@ -23,6 +25,18 @@ var (
 		Scopes:       []string{""},
 		Endpoint:     google.Endpoint,
 	}
+	GoogleWentWrongRedirUrl string
+
+	/// LINKEDIN
+	linkedinOauthInitOnce sync.Once
+	LinkedinOauthConfig   = &oauth2.Config{
+		ClientID:     "",
+		ClientSecret: "",
+		RedirectURL:  "",
+		Scopes:       []string{""},
+		Endpoint:     linkedin.Endpoint,
+	}
+	LinkedingWentWrongRedirUrl string
 )
 
 type GoogleDefaultResponse struct {
@@ -38,12 +52,32 @@ type GoogleAuthResponse struct {
 	Token    *oauth2.Token
 }
 
-func UseGoogleOauth(clientID, clientSecret, redirectURL string, scopes []string) {
+type LinkedinAuthResponse struct {
+	UserInfo LinkedinUserInfo
+	Token    *oauth2.Token
+}
+
+type LinkedinUserInfo struct {
+	Name          string             `json:"name"`
+	Email         string             `json:"email"`
+	EmailVerified bool               `json:"email_verified"`
+	FamilyName    string             `json:"family_name"`
+	GivenName     string             `json:"given_name"`
+	Locale        LinkedinUserLocale `json:"locale"`
+}
+
+type LinkedinUserLocale struct {
+	Country  string `json:"country"`
+	Language string `json:"language"`
+}
+
+func UseGoogleOauth(clientID, clientSecret, redirectURL, googleWentWrongdRedirectURL string, scopes []string) {
 	googleOauthInitOnce.Do(func() {
 		GoogleOauthConfig.ClientID = clientID
 		GoogleOauthConfig.ClientSecret = clientSecret
 		GoogleOauthConfig.RedirectURL = redirectURL
 		GoogleOauthConfig.Scopes = scopes
+		GoogleWentWrongRedirUrl = googleWentWrongdRedirectURL
 	})
 }
 
@@ -69,13 +103,13 @@ func AuthGoogleHandler(tc *TupaContext) error {
 func AuthGoogleCallback(w http.ResponseWriter, r *http.Request) (*GoogleAuthResponse, error) {
 	code := r.FormValue("code")
 	if code == "" {
-		w.Write([]byte("Usuário não aceitou a autenticação...\n"))
+		log.Println("Usuário não aceitou a autenticação...")
 		reason := r.FormValue("error")
 		if reason == "user_denied" {
-			w.Write([]byte("Usuário negou a permissão..."))
+			log.Println("Usuário negou a permissão...")
 		}
 
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, GoogleWentWrongRedirUrl, http.StatusTemporaryRedirect)
 		return nil, nil
 	}
 
@@ -87,14 +121,14 @@ func AuthGoogleCallback(w http.ResponseWriter, r *http.Request) (*GoogleAuthResp
 
 	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + url.QueryEscape(token.AccessToken))
 	if err != nil {
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		return nil, nil
+		http.Redirect(w, r, GoogleWentWrongRedirUrl, http.StatusTemporaryRedirect)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	response, err := io.ReadAll(resp.Body)
 	if err != nil {
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, GoogleWentWrongRedirUrl, http.StatusTemporaryRedirect)
 		return nil, nil
 	}
 
@@ -105,6 +139,76 @@ func AuthGoogleCallback(w http.ResponseWriter, r *http.Request) (*GoogleAuthResp
 	}
 
 	return &GoogleAuthResponse{
+		UserInfo: userInfo,
+		Token:    token,
+	}, nil
+}
+
+func UseLinkedinOauth(clientID, clientSecret, redirectURL, linkedinWentWrongRedirUrl string, scopes []string) {
+	linkedinOauthInitOnce.Do(func() {
+		LinkedinOauthConfig.ClientID = clientID
+		LinkedinOauthConfig.ClientSecret = clientSecret
+		LinkedinOauthConfig.RedirectURL = redirectURL
+		LinkedinOauthConfig.Scopes = scopes
+		LinkedingWentWrongRedirUrl = linkedinWentWrongRedirUrl
+	})
+}
+
+func AuthLinkedinHandler(tc *TupaContext) error {
+	URL, err := url.Parse(LinkedinOauthConfig.Endpoint.AuthURL)
+	if err != nil {
+		return fmt.Errorf("parse: %w", err)
+	}
+
+	parameters := url.Values{}
+	parameters.Add("client_id", LinkedinOauthConfig.ClientID)
+	parameters.Add("scope", strings.Join(LinkedinOauthConfig.Scopes, " "))
+	parameters.Add("redirect_uri", LinkedinOauthConfig.RedirectURL)
+	parameters.Add("response_type", "code")
+
+	URL.RawQuery = parameters.Encode()
+	url := URL.String()
+
+	http.Redirect((*tc.Response()), tc.Request(), url, http.StatusTemporaryRedirect)
+	return nil
+}
+
+func AuthLinkedinCallback(w http.ResponseWriter, r *http.Request) (*LinkedinAuthResponse, error) {
+	code := r.FormValue("code")
+	if code == "" {
+		log.Println("Usuário não aceitou a autenticação...")
+
+		http.Redirect(w, r, LinkedingWentWrongRedirUrl, http.StatusPermanentRedirect)
+		return nil, nil
+	}
+
+	token, err := LinkedinOauthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		fmt.Printf("Exchange do código falhou '%s'\n", err)
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", "https://api.linkedin.com/v2/userinfo", nil)
+	if err != nil {
+		http.Redirect(w, r, LinkedingWentWrongRedirUrl, http.StatusTemporaryRedirect)
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, nil
+	}
+	defer resp.Body.Close()
+
+	var userInfo LinkedinUserInfo
+	err = json.NewDecoder(resp.Body).Decode(&userInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return &LinkedinAuthResponse{
 		UserInfo: userInfo,
 		Token:    token,
 	}, nil
