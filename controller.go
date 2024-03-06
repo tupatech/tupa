@@ -54,11 +54,12 @@ const (
 )
 
 var AllowedMethods = map[HTTPMethod]bool{
-	MethodGet:    true,
-	MethodPost:   true,
-	MethodPut:    true,
-	MethodDelete: true,
-	MethodPatch:  true,
+	MethodGet:     true,
+	MethodPost:    true,
+	MethodPut:     true,
+	MethodDelete:  true,
+	MethodPatch:   true,
+	MethodOptions: true,
 }
 
 var allRoutes []RouteInfo
