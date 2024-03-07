@@ -100,16 +100,16 @@ func AuthGoogleHandler(tc *TupaContext) error {
 	return nil
 }
 
-func AuthGoogleCallback(w http.ResponseWriter, r *http.Request) (*GoogleAuthResponse, error) {
-	code := r.FormValue("code")
+func AuthGoogleCallback(tc *TupaContext) (*GoogleAuthResponse, error) {
+	code := tc.Request().FormValue("code")
 	if code == "" {
 		log.Println("Usuário não aceitou a autenticação...")
-		reason := r.FormValue("error")
+		reason := tc.Request().FormValue("error")
 		if reason == "user_denied" {
 			log.Println("Usuário negou a permissão...")
 		}
 
-		http.Redirect(w, r, GoogleWentWrongRedirUrl, http.StatusTemporaryRedirect)
+		http.Redirect(*tc.Response(), tc.Request(), GoogleWentWrongRedirUrl, http.StatusTemporaryRedirect)
 		return nil, nil
 	}
 
@@ -121,14 +121,14 @@ func AuthGoogleCallback(w http.ResponseWriter, r *http.Request) (*GoogleAuthResp
 
 	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + url.QueryEscape(token.AccessToken))
 	if err != nil {
-		http.Redirect(w, r, GoogleWentWrongRedirUrl, http.StatusTemporaryRedirect)
+		http.Redirect(*tc.Response(), tc.Request(), GoogleWentWrongRedirUrl, http.StatusTemporaryRedirect)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	response, err := io.ReadAll(resp.Body)
 	if err != nil {
-		http.Redirect(w, r, GoogleWentWrongRedirUrl, http.StatusTemporaryRedirect)
+		http.Redirect(*tc.Response(), tc.Request(), GoogleWentWrongRedirUrl, http.StatusTemporaryRedirect)
 		return nil, nil
 	}
 

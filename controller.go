@@ -75,11 +75,14 @@ func (a *APIServer) New() {
 		})
 	}
 
-	routerHandler := cors.Default().Handler(a.router)
+	c := cors.New(cors.Options{
+		AllowCredentials: true,
+	})
+	serverHandler := c.Handler(a.router)
 
 	a.server = &http.Server{
 		Addr:    a.listenAddr,
-		Handler: routerHandler,
+		Handler: serverHandler,
 	}
 
 	fmt.Println(FmtBlue("Servidor iniciado na porta: " + a.listenAddr))
