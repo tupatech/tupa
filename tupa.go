@@ -76,6 +76,14 @@ func (a *APIServer) New() {
 	}
 
 	c := cors.New(cors.Options{
+		AllowedHeaders: []string{
+			"Authorization", "authorization", "Accept", "Content-Type", "X-Requested-With", "X-Frame-Options",
+			"X-XSS-Protection", "X-Content-Type-Options", "X-Permitted-Cross-Domain-Policies", "Referrer-Policy", "Expect-CT",
+			"Feature-Policy", "Content-Security-Policy", "Content-Security-Policy-Report-Only", "Strict-Transport-Security",
+			"Public-Key-Pins", "Public-Key-Pins-Report-Only", "Access-Control-Allow-Origin", "Access-Control-Allow-Methods",
+			"Access-Control-Allow-Headers", "Access-Control-Allow-Credentials", "X-Forwarded-For", "X-Real-IP",
+			"X-Csrf-Token", "X-HTTP-Method-Override",
+		},
 		AllowCredentials: true,
 	})
 	serverHandler := c.Handler(a.router)
