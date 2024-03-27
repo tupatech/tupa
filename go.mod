@@ -1,4 +1,4 @@
-module github.com/Iuptec/tupa
+module github.com/tupatech/tupa
 
 go 1.21.0
 
