@@ -177,7 +177,7 @@ func AuthLinkedinHandler(tc *TupaContext) error {
 	return nil
 }
 
-func AuthLinkedinCallback(w http.ResponseWriter, r *http.Request) (*LinkedinAuthResponse, error) {
+func AuthLinkedinCallback(w http.ResponseWriter, r *http.Request) (map[string]interface{}, error) {
 	code := r.FormValue("code")
 	if code == "" {
 		log.Println("Usuário não aceitou a autenticação...")
@@ -206,14 +206,14 @@ func AuthLinkedinCallback(w http.ResponseWriter, r *http.Request) (*LinkedinAuth
 	}
 	defer resp.Body.Close()
 
-	var userInfo LinkedinUserInfo
+	var userInfo map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&userInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	return &LinkedinAuthResponse{
-		UserInfo: userInfo,
-		Token:    token,
+	return map[string]interface{}{
+		"UserInfo": userInfo,
+		"Token":    token,
 	}, nil
 }
