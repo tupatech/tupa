@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,12 +27,15 @@ type (
 		QueryParams() map[string][]string
 		SetRequest(r *http.Request)
 		SetResponse(w http.ResponseWriter)
+		GetCtx() context.Context
+		SetContext(ctx context.Context)
+		Context() context.Context
 	}
 
 	TupaContext struct {
-		request  *http.Request
-		response http.ResponseWriter
-		context.Context
+		Req  *http.Request
+		Resp http.ResponseWriter
+		Ctx  context.Context
 	}
 )
 
@@ -127,7 +131,7 @@ func NewAPIServer(listenAddr string) *APIServer {
 }
 
 func WelcomeHandler(tc *TupaContext) error {
-	WriteJSONHelper(tc.response, http.StatusOK, "Seja bem vindo ao Tupã framework!")
+	WriteJSONHelper(tc.Resp, http.StatusOK, "Seja bem vindo ao Tupã framework!")
 	return nil
 }
 
@@ -162,8 +166,9 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo, middlewares MiddlewareChain, globalMiddlewares MiddlewareChain) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := &TupaContext{
-			request:  r,
-			response: w,
+			Req:  r,
+			Resp: w,
+			Ctx:  r.Context(),
 		}
 
 		// Combina middlewares globais com os especificos de rota
@@ -175,14 +180,30 @@ func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo, middlewares M
 		errorsSlice := <-doneCh // espera até que algum valor seja recebido. Continua no primeiro erro recebido ( se houver ) ou se não houver nenhum erro
 
 		if len(errorsSlice) > 0 {
-			WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: errorsSlice[0].Error()})
+			err := errorsSlice[0]
+			if apiErr, ok := err.(APIHandlerErr); ok {
+				slog.Error("API Error", "err:", apiErr, "status:", apiErr.Status)
+				WriteJSONHelper(w, apiErr.Status, APIError{Error: apiErr.Error()})
+			} else {
+				slog.Error("API Error", "err:", apiErr, "status:", apiErr.Status)
+				WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: err.Error()})
+			}
 			return
 		}
 
 		if r.Method == string(routeInfo.Method) {
-			if err := routeInfo.Handler(ctx); err != nil {
-				if err := WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: err.Error()}); err != nil {
-					fmt.Println("Erro ao escrever resposta JSON:", err)
+			// if err := routeInfo.Handler(ctx); err != nil {
+			// 	if err := WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: err.Error()}); err != nil {
+			// 		fmt.Println("Erro ao escrever resposta JSON:", err)
+			// 	}
+			// }
+			err := routeInfo.Handler(ctx)
+			if err != nil {
+				if apiErr, ok := err.(APIHandlerErr); ok {
+					slog.Error("API Error", "err:", apiErr, "status:", apiErr.Status)
+					WriteJSONHelper(w, apiErr.Status, APIError{Error: apiErr.Error()})
+				} else {
+					WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: err.Error()})
 				}
 			}
 		} else {
@@ -208,20 +229,28 @@ func GetRoutes() []RouteInfo {
 }
 
 func (tc *TupaContext) Request() *http.Request {
-	return tc.request
+	return tc.Req
 }
 
 func (tc *TupaContext) Response() *http.ResponseWriter {
-	return &tc.response
+	return &tc.Resp
 }
 
 func (tc *TupaContext) SendString(s string) error {
-	_, err := tc.response.Write([]byte(s))
+	_, err := tc.Resp.Write([]byte(s))
 	return err
 }
 
+func (tc *TupaContext) SetRequest(r *http.Request) {
+	tc.Req = r
+}
+
+func (tc *TupaContext) SetResponse(w http.ResponseWriter) {
+	tc.Resp = w
+}
+
 func (tc *TupaContext) Param(param string) string {
-	return mux.Vars(tc.request)[param]
+	return mux.Vars(tc.Req)[param]
 }
 
 func (tc *TupaContext) QueryParam(param string) string {
@@ -232,17 +261,26 @@ func (tc *TupaContext) QueryParams() map[string][]string {
 	return tc.Request().URL.Query()
 }
 
-func (tc *TupaContext) SetRequest(r *http.Request) {
-	tc.request = r
+func (tc *TupaContext) GetCtx() context.Context {
+	return tc.Ctx
 }
 
-func (tc *TupaContext) SetResponse(w http.ResponseWriter) {
-	tc.response = w
+func (tc *TupaContext) SetContext(ctx context.Context) {
+	tc.Ctx = ctx
 }
 
-func (tc *TupaContext) NewTupaContext(w http.ResponseWriter, r *http.Request) *TupaContext {
+func NewTupaContext(w http.ResponseWriter, r *http.Request) *TupaContext {
 	return &TupaContext{
-		request:  r,
-		response: w,
+		Req:  r,
+		Resp: w,
+		Ctx:  r.Context(),
+	}
+}
+
+func NewTupaContextWithContext(w http.ResponseWriter, r *http.Request, ctx context.Context) *TupaContext {
+	return &TupaContext{
+		Req:  r,
+		Resp: w,
+		Ctx:  ctx,
 	}
 }
