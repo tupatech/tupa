@@ -16,8 +16,8 @@ func MiddlewareSample(next APIFunc) APIFunc {
 
 	return func(tc *TupaContext) error {
 		smpMidd := "sampleMiddleware"
-		reqCtx := context.WithValue(tc.request.Context(), "smpMidd", smpMidd)
-		tc.request = tc.request.WithContext(reqCtx)
+		reqCtx := context.WithValue(tc.Req.Context(), "smpMidd", smpMidd)
+		tc.Req = tc.Req.WithContext(reqCtx)
 
 		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 		fmt.Println("Middleware antes de chamar o handler")
@@ -29,7 +29,7 @@ func MiddlewareSample(next APIFunc) APIFunc {
 }
 
 func getCtxFromSampleMiddleware(tc *TupaContext) {
-	ctxValue := tc.request.Context().Value("smpMidd").(string)
+	ctxValue := tc.Req.Context().Value("smpMidd").(string)
 
 	fmt.Println(ctxValue)
 }
@@ -39,15 +39,15 @@ func MiddlewareLoggingWithError(next APIFunc) APIFunc {
 
 		start := time.Now()
 		errMsg := errors.New("erro no middleware LoggingMiddlewareWithError")
-		ctx := context.WithValue(tc.request.Context(), "smpErrorMidd", "sampleErrorMiddleware")
-		tc.request = tc.request.WithContext(ctx)
+		ctx := context.WithValue(tc.Req.Context(), "smpErrorMidd", "sampleErrorMiddleware")
+		tc.Req = tc.Req.WithContext(ctx)
 
 		err := next(tc)
 		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
-		log.Printf("Fim da request para endpoint teste: %s, duração: %v", tc.request.URL.Path, time.Since(start))
+		log.Printf("Fim da Req para endpoint teste: %s, duração: %v", tc.Req.URL.Path, time.Since(start))
 
 		if err != nil {
-			log.Printf("erro ao chamar proximo middleware %s: %v", tc.request.URL.Path, err)
+			log.Printf("erro ao chamar proximo middleware %s: %v", tc.Req.URL.Path, err)
 		}
 
 		return errMsg
@@ -58,8 +58,8 @@ func MiddlewareWithCtx(next APIFunc) APIFunc {
 
 	return func(tc *TupaContext) error {
 		smpMidd := "MiddlewareWithCtx"
-		reqCtx := context.WithValue(tc.request.Context(), "withCtx", smpMidd)
-		tc.request = tc.request.WithContext(reqCtx)
+		reqCtx := context.WithValue(tc.Req.Context(), "withCtx", smpMidd)
+		tc.Req = tc.Req.WithContext(reqCtx)
 
 		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
@@ -71,8 +71,8 @@ func MiddlewareWithCtxChanMsg(next APIFunc, messages chan<- string) APIFunc {
 
 	return func(tc *TupaContext) error {
 		smpMidd := "MiddlewareWithCtx"
-		reqCtx := context.WithValue(tc.request.Context(), "withCtx", smpMidd)
-		tc.request = tc.request.WithContext(reqCtx)
+		reqCtx := context.WithValue(tc.Req.Context(), "withCtx", smpMidd)
+		tc.Req = tc.Req.WithContext(reqCtx)
 
 		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
@@ -88,14 +88,14 @@ func TestSampleMiddleware(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		ctx := &TupaContext{
-			request:  req,
-			response: w,
+			Req:  req,
+			Resp: w,
 		}
 
 		// handler que não retorna erro
 		handler := func(tc *TupaContext) error {
 			// Chacando se o middleware tem valor de context
-			if val := tc.request.Context().Value("qualquerKey"); val != nil {
+			if val := tc.Req.Context().Value("qualquerKey"); val != nil {
 				t.Error("Valor de context esperado não era esperado")
 			}
 			return nil
@@ -123,7 +123,7 @@ func TestMiddlewareConcurrency(t *testing.T) {
 		middleware := MiddlewareWithCtx
 
 		handler := func(tc *TupaContext) error {
-			ctxValue := tc.request.Context().Value("withCtx").(string)
+			ctxValue := tc.Req.Context().Value("withCtx").(string)
 
 			if ctxValue != "MiddlewareWithCtx" {
 				t.Errorf("Esperava valor de context 'MiddlewareWithCtx', recebeu '%s'", ctxValue)
@@ -139,8 +139,8 @@ func TestMiddlewareConcurrency(t *testing.T) {
 				w := httptest.NewRecorder()
 
 				ctx := &TupaContext{
-					request:  req,
-					response: w,
+					Req:  req,
+					Resp: w,
 				}
 
 				// Chanmando o middleware com o handler e o contexto
@@ -167,7 +167,7 @@ func TestMiddlewareWithCtxAndChannels(t *testing.T) {
 	middleware := MiddlewareWithCtx
 
 	handler := func(tc *TupaContext) error {
-		ctxValue := tc.request.Context().Value("withCtx").(string)
+		ctxValue := tc.Req.Context().Value("withCtx").(string)
 
 		ctxValues <- ctxValue
 
@@ -180,8 +180,8 @@ func TestMiddlewareWithCtxAndChannels(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			ctx := &TupaContext{
-				request:  req,
-				response: w,
+				Req:  req,
+				Resp: w,
 			}
 
 			err := middleware(handler)(ctx)
@@ -225,8 +225,8 @@ func TestMiddlewareWithCtxAndChannelAndMsg(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			ctx := &TupaContext{
-				request:  req,
-				response: w,
+				Req:  req,
+				Resp: w,
 			}
 
 			err := middleware(handler)(ctx)

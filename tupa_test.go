@@ -13,8 +13,8 @@ func BenchmarkDirectAccessSendString(b *testing.B) {
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	ctx := &TupaContext{
-		request:  req,
-		response: w,
+		Req:  req,
+		Resp: w,
 	}
 
 	start := time.Now()
@@ -43,7 +43,7 @@ func TestParam(t *testing.T) {
 		})
 
 		tc := &TupaContext{
-			request: req,
+			Req: req,
 		}
 
 		got := tc.Param("id")
@@ -60,7 +60,7 @@ func TestParam(t *testing.T) {
 		}
 
 		tc := &TupaContext{
-			request: req,
+			Req: req,
 		}
 
 		got := tc.Param("id")
@@ -79,7 +79,7 @@ func TestQueryParam(t *testing.T) {
 		}
 
 		tc := &TupaContext{
-			request: req,
+			Req: req,
 		}
 
 		got := tc.QueryParam("name")
@@ -96,7 +96,7 @@ func TestQueryParam(t *testing.T) {
 		}
 
 		tc := &TupaContext{
-			request: req,
+			Req: req,
 		}
 
 		got := tc.QueryParam("name")
@@ -115,7 +115,7 @@ func TestQueryParams(t *testing.T) {
 		}
 
 		tc := &TupaContext{
-			request: req,
+			Req: req,
 		}
 
 		got := tc.QueryParams()
@@ -135,7 +135,7 @@ func TestQueryParams(t *testing.T) {
 		}
 
 		tc := &TupaContext{
-			request: req,
+			Req: req,
 		}
 
 		got := tc.QueryParams()
