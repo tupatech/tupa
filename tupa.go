@@ -30,6 +30,8 @@ type (
 		GetCtx() context.Context
 		SetContext(ctx context.Context)
 		Context() context.Context
+		CtxWithValue(key, value interface{}) *TupaContext
+		CtxValue(key interface{}) interface{}
 	}
 
 	TupaContext struct {
@@ -40,6 +42,8 @@ type (
 )
 
 type APIFunc func(*TupaContext) error
+
+type MiddlewareFuncCtx func(APIFunc) *TupaContext
 
 type APIServer struct {
 	listenAddr        string
@@ -158,7 +162,10 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
+
+	if w.Header().Get("Content-Type") == "" {
+		w.WriteHeader(status)
+	}
 
 	return json.NewEncoder(w).Encode(v)
 }
@@ -283,4 +290,13 @@ func NewTupaContextWithContext(w http.ResponseWriter, r *http.Request, ctx conte
 		Resp: w,
 		Ctx:  ctx,
 	}
+}
+
+func (tc *TupaContext) CtxWithValue(key, value interface{}) *TupaContext {
+	newCtx := context.WithValue(tc.Ctx, key, value)
+	return NewTupaContextWithContext(tc.Resp, tc.Req, newCtx)
+}
+
+func (tc *TupaContext) CtxValue(key interface{}) interface{} {
+	return tc.Ctx.Value(key)
 }
