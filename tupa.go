@@ -239,8 +239,8 @@ func (tc *TupaContext) Request() *http.Request {
 	return tc.Req
 }
 
-func (tc *TupaContext) Response() *http.ResponseWriter {
-	return &tc.Resp
+func (tc *TupaContext) Response() http.ResponseWriter {
+	return tc.Resp
 }
 
 func (tc *TupaContext) SendString(s string) error {
@@ -274,6 +274,10 @@ func (tc *TupaContext) GetCtx() context.Context {
 
 func (tc *TupaContext) SetContext(ctx context.Context) {
 	tc.Ctx = ctx
+}
+
+func (tc *TupaContext) GetReqCtx() context.Context {
+	return tc.Req.Context()
 }
 
 func NewTupaContext(w http.ResponseWriter, r *http.Request) *TupaContext {
