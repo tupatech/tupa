@@ -38,14 +38,14 @@ func UploadFile(tc *TupaContext, filePrefix, destFolder, formFileKey string) (mu
 
 	defer destFile.Close()
 	if err != nil {
-		return multipart.FileHeader{}, WriteJSONHelper(*tc.Response(), http.StatusInternalServerError, err.Error())
+		return multipart.FileHeader{}, WriteJSONHelper(tc.Resp, http.StatusInternalServerError, err.Error())
 	}
 
 	// copia o arquivo do upload para o arquivo criado no SO
 	if _, err := io.Copy(destFile, file); err != nil {
-		return multipart.FileHeader{}, WriteJSONHelper(*tc.Response(), http.StatusInternalServerError, err.Error())
+		return multipart.FileHeader{}, WriteJSONHelper(tc.Resp, http.StatusInternalServerError, err.Error())
 	}
 
-	fmt.Fprint(*tc.Response(), "Arquivo salvo com sucesso\n")
+	fmt.Fprint(tc.Resp, "Arquivo salvo com sucesso\n")
 	return *fileHeader, nil
 }
