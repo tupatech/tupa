@@ -145,13 +145,7 @@ func (a *APIServer) RegisterRoutes(routeInfos []RouteInfo) {
 			log.Fatalf(fmt.Sprintf(FmtRed("Método HTTP não permitido: "), "%s\nVeja como criar um novo método na documentação", routeInfo.Method))
 		}
 
-		var allMiddlewares MiddlewareChain
-		middlewaresGlobais := a.GetGlobalMiddlewares()
-
-		allMiddlewares = append(allMiddlewares, middlewaresGlobais...)
-
-		handler := a.MakeHTTPHandlerFuncHelper(routeInfo, allMiddlewares, a.globalMiddlewares)
-
+		handler := a.MakeHTTPHandlerFuncHelper(routeInfo)
 		a.router.HandleFunc(routeInfo.Path, handler).Methods(string(routeInfo.Method))
 	}
 }
@@ -170,7 +164,7 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 	return json.NewEncoder(w).Encode(v)
 }
 
-func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo, middlewares MiddlewareChain, globalMiddlewares MiddlewareChain) http.HandlerFunc {
+func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := &TupaContext{
 			Req:  r,
@@ -180,7 +174,6 @@ func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo, middlewares M
 
 		// Combina middlewares globais com os especificos de rota
 		allMiddlewares := MiddlewareChain{}
-		allMiddlewares = append(allMiddlewares, a.GetGlobalMiddlewares()...)
 		allMiddlewares = append(allMiddlewares, routeInfo.Middlewares...)
 
 		doneCh := a.executeMiddlewaresAsync(ctx, allMiddlewares)
@@ -223,7 +216,8 @@ func AddRoutes(groupMiddlewares MiddlewareChain, routeFuncs ...func() []RouteInf
 	for _, routeFunc := range routeFuncs {
 		routes := routeFunc()
 		for i := range routes {
-			routes[i].Middlewares = append(routes[i].Middlewares, groupMiddlewares...)
+			allMiddlewares := append(MiddlewareChain(nil), groupMiddlewares...)
+			routes[i].Middlewares = append(allMiddlewares, routes[i].Middlewares...)
 		}
 		allRoutes = append(allRoutes, routes...)
 	}
