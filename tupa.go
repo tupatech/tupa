@@ -209,6 +209,24 @@ func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo) http.HandlerF
 		} else {
 			WriteJSONHelper(w, http.StatusMethodNotAllowed, APIError{Error: "Método HTTP não permitido"})
 		}
+
+		allAfterMiddlewares := MiddlewareChain{}
+		allAfterMiddlewares = append(allAfterMiddlewares, routeInfo.AfterMiddlewares...)
+
+		doneCh = a.executeMiddlewaresAsync(ctx, allAfterMiddlewares)
+		errorsSlice = <-doneCh
+
+		if len(errorsSlice) > 0 {
+			err := errorsSlice[0]
+			if apiErr, ok := err.(APIHandlerErr); ok {
+				slog.Error("API Error", "err:", apiErr, "status:", apiErr.Status)
+				WriteJSONHelper(w, apiErr.Status, APIError{Error: apiErr.Error()})
+			} else {
+				slog.Error("API Error", "err:", apiErr, "status:", apiErr.Status)
+				WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: err.Error()})
+			}
+			return
+		}
 	}
 }
 
