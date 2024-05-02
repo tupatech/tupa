@@ -46,10 +46,11 @@ type APIFunc func(*TupaContext) error
 type MiddlewareFuncCtx func(APIFunc) *TupaContext
 
 type APIServer struct {
-	listenAddr        string
-	server            *http.Server
-	globalMiddlewares MiddlewareChain
-	router            *mux.Router
+	listenAddr             string
+	server                 *http.Server
+	globalMiddlewares      MiddlewareChain
+	globalAfterMiddlewares MiddlewareChain
+	router                 *mux.Router
 }
 
 const (
@@ -174,6 +175,7 @@ func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo) http.HandlerF
 
 		// Combina middlewares globais com os especificos de rota
 		allMiddlewares := MiddlewareChain{}
+		allMiddlewares = append(allMiddlewares, a.globalMiddlewares...)
 		allMiddlewares = append(allMiddlewares, routeInfo.Middlewares...)
 
 		doneCh := a.executeMiddlewaresAsync(ctx, allMiddlewares)
@@ -212,6 +214,7 @@ func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo) http.HandlerF
 
 		allAfterMiddlewares := MiddlewareChain{}
 		allAfterMiddlewares = append(allAfterMiddlewares, routeInfo.AfterMiddlewares...)
+		allAfterMiddlewares = append(allAfterMiddlewares, a.globalAfterMiddlewares...)
 
 		doneCh = a.executeMiddlewaresAsync(ctx, allAfterMiddlewares)
 		errorsSlice = <-doneCh

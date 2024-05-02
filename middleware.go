@@ -14,6 +14,10 @@ func (a *APIServer) UseGlobalMiddleware(middleware ...MiddlewareFunc) {
 	a.globalMiddlewares.Use(middleware...)
 }
 
+func (a *APIServer) UseGlobalAfterMiddleware(middleware ...MiddlewareFunc) {
+	a.globalAfterMiddlewares.Use(middleware...)
+}
+
 func (a *APIServer) GetGlobalMiddlewares() []MiddlewareFunc {
 	return a.globalMiddlewares
 }
