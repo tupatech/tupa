@@ -24,3 +24,5 @@ type RouteInfo struct {
 	Middlewares      []MiddlewareFunc
 	AfterMiddlewares []MiddlewareFunc
 }
+
+type RouteManager func()

@@ -51,6 +51,7 @@ type APIServer struct {
 	globalMiddlewares      MiddlewareChain
 	globalAfterMiddlewares MiddlewareChain
 	router                 *mux.Router
+	routeManager           RouteManager
 }
 
 const (
@@ -74,6 +75,10 @@ var AllowedMethods = map[HTTPMethod]bool{
 var allRoutes []RouteInfo
 
 func (a *APIServer) New() {
+	a.routeManager()
+
+	a.RegisterRoutes(GetRoutes())
+
 	if a.router.GetRoute("/") == nil {
 		a.RegisterRoutes([]RouteInfo{
 			{
@@ -125,13 +130,14 @@ func (a *APIServer) New() {
 	fmt.Println(FmtYellow("Servidor encerrado na porta: " + a.listenAddr))
 }
 
-func NewAPIServer(listenAddr string) *APIServer {
+func NewAPIServer(listenAddr string, routeManager RouteManager) *APIServer {
 	router := mux.NewRouter()
 
 	return &APIServer{
 		listenAddr:        listenAddr,
 		router:            router,
 		globalMiddlewares: MiddlewareChain{},
+		routeManager:      routeManager,
 	}
 }
 
