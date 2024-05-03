@@ -10,7 +10,7 @@ func (chain *MiddlewareChain) Use(middleware ...MiddlewareFunc) {
 	*chain = append(*chain, middleware...)
 }
 
-func (a *APIServer) UseGlobalMiddleware(middleware ...MiddlewareFunc) {
+func (a *APIServer) UseGlobalMiddlewares(middleware ...MiddlewareFunc) {
 	a.globalMiddlewares.Use(middleware...)
 }
 

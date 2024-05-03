@@ -75,19 +75,13 @@ var AllowedMethods = map[HTTPMethod]bool{
 var allRoutes []RouteInfo
 
 func (a *APIServer) New() {
-	a.routeManager()
+	if a.routeManager == nil {
+		defaultRouteManager()
+	} else {
+		a.routeManager()
+	}
 
 	a.RegisterRoutes(GetRoutes())
-
-	if a.router.GetRoute("/") == nil {
-		a.RegisterRoutes([]RouteInfo{
-			{
-				Path:    "/",
-				Method:  MethodGet,
-				Handler: WelcomeHandler,
-			},
-		})
-	}
 
 	c := cors.New(cors.Options{
 		AllowedHeaders: []string{
@@ -141,9 +135,19 @@ func NewAPIServer(listenAddr string, routeManager RouteManager) *APIServer {
 	}
 }
 
-func WelcomeHandler(tc *TupaContext) error {
-	WriteJSONHelper(tc.Resp, http.StatusOK, "Seja bem vindo ao Tupã framework!")
-	return nil
+func defaultRouteManager() {
+	AddRoutes(nil, func() []RouteInfo {
+		return []RouteInfo{
+			{
+				Path:   "/",
+				Method: MethodGet,
+				Handler: func(tc *TupaContext) error {
+					WriteJSONHelper(tc.Resp, http.StatusOK, "Seja bem vindo ao Tupã framework!")
+					return nil
+				},
+			},
+		}
+	})
 }
 
 func (a *APIServer) RegisterRoutes(routeInfos []RouteInfo) {

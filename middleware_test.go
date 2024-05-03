@@ -264,7 +264,7 @@ func middlewareFailure(ctx APIFunc) APIFunc {
 
 func TestExecuteMiddlewaresAsync_NoErrors(t *testing.T) {
 	t.Run("Testando ExecuteMiddlewaresAsync sem erros", func(t *testing.T) {
-		server := NewAPIServer(":8080")
+		server := NewAPIServer(":8080", nil)
 
 		ctx := &TupaContext{}
 
@@ -283,7 +283,7 @@ func TestExecuteMiddlewaresAsync_NoErrors(t *testing.T) {
 	})
 
 	t.Run("Testando ExecuteMiddlewaresAsync com erros", func(t *testing.T) {
-		server := NewAPIServer(":8080")
+		server := NewAPIServer(":8080", nil)
 
 		ctx := &TupaContext{}
 
