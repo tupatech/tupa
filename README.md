@@ -16,3 +16,7 @@
 #### - v0.0.41
 
 1. No need to call RegisterRoutes anymore
+
+#### - v0.0.42
+
+1. New NewTupaContext method and tests

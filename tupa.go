@@ -32,6 +32,7 @@ type (
 		Context() context.Context
 		CtxWithValue(key, value interface{}) *TupaContext
 		CtxValue(key interface{}) interface{}
+		NewTupaContext(req **http.Request, resp http.ResponseWriter, ctx context.Context) *TupaContext
 	}
 
 	TupaContext struct {
@@ -305,14 +306,6 @@ func (tc *TupaContext) GetReqCtx() context.Context {
 	return tc.Req.Context()
 }
 
-func NewTupaContext(w http.ResponseWriter, r *http.Request) *TupaContext {
-	return &TupaContext{
-		Req:  r,
-		Resp: w,
-		Ctx:  r.Context(),
-	}
-}
-
 func NewTupaContextWithContext(w http.ResponseWriter, r *http.Request, ctx context.Context) *TupaContext {
 	return &TupaContext{
 		Req:  r,
@@ -328,4 +321,12 @@ func (tc *TupaContext) CtxWithValue(key, value interface{}) *TupaContext {
 
 func (tc *TupaContext) CtxValue(key interface{}) interface{} {
 	return tc.Ctx.Value(key)
+}
+
+func NewTupaContext(req **http.Request, resp http.ResponseWriter, ctx context.Context) *TupaContext {
+	return &TupaContext{
+		Req:  *req,
+		Resp: resp,
+		Ctx:  ctx,
+	}
 }

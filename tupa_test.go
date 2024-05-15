@@ -1,8 +1,10 @@
 package tupa
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -144,4 +146,51 @@ func TestQueryParams(t *testing.T) {
 			t.Errorf("parametro retornado %v, queria %v", got, want)
 		}
 	})
+}
+
+func TestNewTupaContext(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	resp := httptest.NewRecorder()
+	ctx := context.Background()
+
+	tupaCtx := NewTupaContext(&req, resp, ctx)
+
+	if tupaCtx.Req != req {
+		t.Errorf("Expected request to be %v, but got %v", req, tupaCtx.Req)
+	}
+
+	if tupaCtx.Resp != resp {
+		t.Errorf("Expected response to be %v, but got %v", resp, tupaCtx.Resp)
+	}
+
+	if tupaCtx.Ctx != ctx {
+		t.Errorf("Expected context to be %v, but got %v", ctx, tupaCtx.Ctx)
+	}
+}
+
+func TestNewTupaContextRaceCondition(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	resp := httptest.NewRecorder()
+	ctx := context.Background()
+
+	var wg sync.WaitGroup
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = NewTupaContext(&req, resp, ctx)
+		}()
+	}
+	wg.Wait()
+}
+
+func BenchmarkNewTupaContext(b *testing.B) {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	resp := httptest.NewRecorder()
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = NewTupaContext(&req, resp, ctx)
+	}
 }
