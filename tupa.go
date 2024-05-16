@@ -294,6 +294,10 @@ func (tc *TupaContext) QueryParams() map[string][]string {
 	return tc.Request().URL.Query()
 }
 
+func (tc *TupaContext) Params() map[string]string {
+	return mux.Vars(tc.Request())
+}
+
 func (tc *TupaContext) GetCtx() context.Context {
 	return tc.Ctx
 }

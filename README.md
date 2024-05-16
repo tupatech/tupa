@@ -20,3 +20,7 @@
 #### - v0.0.42
 
 1. New NewTupaContext method and tests
+
+#### - v0.0.44
+
+1. Add method Params to easily and semantically get the params from request
