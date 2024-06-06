@@ -24,3 +24,8 @@
 #### - v0.0.44
 
 1. Add method Params to easily and semantically get the params from request
+
+#### - v0.0.45
+
+1. Temporary removal of method GetReqCtx
+2. Returning correct method based on user method on WriteJSONHelper

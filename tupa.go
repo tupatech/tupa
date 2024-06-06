@@ -169,9 +169,7 @@ func WriteJSONHelper(w http.ResponseWriter, status int, v any) error {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	if w.Header().Get("Content-Type") == "" {
-		w.WriteHeader(status)
-	}
+	w.WriteHeader(status)
 
 	return json.NewEncoder(w).Encode(v)
 }
@@ -205,11 +203,6 @@ func (a *APIServer) MakeHTTPHandlerFuncHelper(routeInfo RouteInfo) http.HandlerF
 		}
 
 		if r.Method == string(routeInfo.Method) {
-			// if err := routeInfo.Handler(ctx); err != nil {
-			// 	if err := WriteJSONHelper(w, http.StatusInternalServerError, APIError{Error: err.Error()}); err != nil {
-			// 		fmt.Println("Erro ao escrever resposta JSON:", err)
-			// 	}
-			// }
 			err := routeInfo.Handler(ctx)
 			if err != nil {
 				if apiErr, ok := err.(APIHandlerErr); ok {
@@ -304,10 +297,6 @@ func (tc *TupaContext) GetCtx() context.Context {
 
 func (tc *TupaContext) SetContext(ctx context.Context) {
 	tc.Ctx = ctx
-}
-
-func (tc *TupaContext) GetReqCtx() context.Context {
-	return tc.Req.Context()
 }
 
 func NewTupaContextWithContext(w http.ResponseWriter, r *http.Request, ctx context.Context) *TupaContext {

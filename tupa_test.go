@@ -237,3 +237,73 @@ func BenchmarkNewTupaContext(b *testing.B) {
 		_ = NewTupaContext(&req, resp, ctx)
 	}
 }
+
+func TestWriteJSONHelperStatuses(t *testing.T) {
+	t.Run("Teste método WriteJSONHelper com status 200", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			Req:  req,
+			Resp: httptest.NewRecorder(),
+		}
+
+		WriteJSONHelper(tc.Resp, http.StatusOK, "Hello, World!")
+		if tc.Resp.(*httptest.ResponseRecorder).Code != 200 {
+			t.Errorf("status retornado %d, queria %d", tc.Resp.(*httptest.ResponseRecorder).Code, 200)
+		}
+	})
+
+	t.Run("Teste método WriteJSONHelper com status 400", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			Req:  req,
+			Resp: httptest.NewRecorder(),
+		}
+
+		WriteJSONHelper(tc.Resp, http.StatusBadRequest, "Hello, World!")
+		if tc.Resp.(*httptest.ResponseRecorder).Code != 400 {
+			t.Errorf("status retornado %d, queria %d", tc.Resp.(*httptest.ResponseRecorder).Code, 400)
+		}
+	})
+
+	t.Run("Teste método WriteJSONHelper com status 500", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			Req:  req,
+			Resp: httptest.NewRecorder(),
+		}
+
+		WriteJSONHelper(tc.Resp, http.StatusInternalServerError, "Hello, World!")
+		if tc.Resp.(*httptest.ResponseRecorder).Code != 500 {
+			t.Errorf("status retornado %d, queria %d", tc.Resp.(*httptest.ResponseRecorder).Code, 500)
+		}
+	})
+
+	t.Run("Teste método WriteJSONHelper com status Unauthorized", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			Req:  req,
+			Resp: httptest.NewRecorder(),
+		}
+
+		WriteJSONHelper(tc.Resp, http.StatusUnauthorized, "Hello, World!")
+		if tc.Resp.(*httptest.ResponseRecorder).Code != 401 {
+			t.Errorf("status retornado %d, queria %d", tc.Resp.(*httptest.ResponseRecorder).Code, 401)
+		}
+	})
+}
