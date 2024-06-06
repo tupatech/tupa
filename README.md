@@ -6,6 +6,10 @@
 
 🇺🇸 In Tupi-Guarani mythology (a Brazilian indigenous tribe), Tupã is the god of thunder, creator of gods, humanity, the skies, seas, animals and forests. The Tupã framework was created to assist you in the development of ambitious projects at the speed of light ⚡️
 
+## For more information, pelase read Tupã docs or contact us
+
+[Tupã documentation](https://docs.tupa.dev/)
+
 ## CHANGELOG
 
 #### - v0.0.40
