@@ -51,7 +51,7 @@ type APIServer struct {
 	server                 *http.Server
 	globalMiddlewares      MiddlewareChain
 	globalAfterMiddlewares MiddlewareChain
-	router                 *mux.Router
+	router                 *Router
 	routeManager           RouteManager
 }
 
@@ -126,13 +126,12 @@ func (a *APIServer) New() {
 }
 
 func NewAPIServer(listenAddr string, routeManager RouteManager) *APIServer {
-	router := mux.NewRouter()
-
 	return &APIServer{
-		listenAddr:        listenAddr,
-		router:            router,
-		globalMiddlewares: MiddlewareChain{},
-		routeManager:      routeManager,
+		listenAddr:             listenAddr,
+		globalMiddlewares:      MiddlewareChain{},
+		globalAfterMiddlewares: MiddlewareChain{},
+		router:                 NewRouter(), // não está recebendo nenhum middleware por enquanto
+		routeManager:           routeManager,
 	}
 }
 
@@ -158,7 +157,8 @@ func (a *APIServer) RegisterRoutes(routeInfos []RouteInfo) {
 		}
 
 		handler := a.MakeHTTPHandlerFuncHelper(routeInfo)
-		a.router.HandleFunc(routeInfo.Path, handler).Methods(string(routeInfo.Method))
+		// a.router.HandleFunc(routeInfo.Path, handler).Methods(string(routeInfo.Method))
+		a.router.Handle(string(routeInfo.Method), routeInfo.Path, handler)
 	}
 }
 

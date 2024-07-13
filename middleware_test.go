@@ -20,10 +20,8 @@ func MiddlewareSample(next APIFunc) APIFunc {
 		tc.Req = tc.Req.WithContext(reqCtx)
 
 		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
-		fmt.Println("Middleware antes de chamar o handler")
 
 		defer getCtxFromSampleMiddleware(tc)
-		defer fmt.Println("SampleMiddleware depois de chamar o handler")
 		return next(tc)
 	}
 }
