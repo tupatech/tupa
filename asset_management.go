@@ -37,9 +37,9 @@ func UploadFile(tc *TupaContext, filePrefix, destFolder, formFileKey string) (mu
 	}
 
 	defer destFile.Close()
-	if err != nil {
-		return multipart.FileHeader{}, WriteJSONHelper(tc.Resp, http.StatusInternalServerError, err.Error())
-	}
+	// if err := os.Chmod(destPath, 0777); err != nil {
+	// 	return multipart.FileHeader{}, WriteJSONHelper(tc.Resp, http.StatusInternalServerError, err.Error())
+	// }
 
 	// copia o arquivo do upload para o arquivo criado no SO
 	if _, err := io.Copy(destFile, file); err != nil {
