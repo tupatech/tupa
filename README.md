@@ -33,3 +33,11 @@
 
 1. Temporary removal of method GetReqCtx
 2. Returning correct method based on user method on WriteJSONHelper
+
+#### - v0.0.46 and v0.0.47
+
+1. Completely removal of Gorilla Mux
+2. Making own Tupã router
+3. Creation of method WithVars
+4. Creation of method Vars
+5. Creation of method extractParams

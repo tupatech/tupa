@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
 
@@ -123,6 +122,16 @@ func (a *APIServer) New() {
 	}
 
 	fmt.Println(FmtYellow("Servidor encerrado na porta: " + a.listenAddr))
+}
+
+func (a *APIServer) Shutdown() {
+	if a.server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := a.server.Shutdown(ctx); err != nil {
+			log.Fatal(FmtRed("Erro ao desligar servidor: "), err)
+		}
+	}
 }
 
 func NewAPIServer(listenAddr string, routeManager RouteManager) *APIServer {
@@ -276,7 +285,7 @@ func (tc *TupaContext) SetResponse(w http.ResponseWriter) {
 }
 
 func (tc *TupaContext) Param(param string) string {
-	return mux.Vars(tc.Req)[param]
+	return Vars(tc.Req)[param]
 }
 
 func (tc *TupaContext) QueryParam(param string) string {
@@ -288,7 +297,7 @@ func (tc *TupaContext) QueryParams() map[string][]string {
 }
 
 func (tc *TupaContext) Params() map[string]string {
-	return mux.Vars(tc.Request())
+	return Vars(tc.Request())
 }
 
 func (tc *TupaContext) GetCtx() context.Context {
@@ -297,6 +306,10 @@ func (tc *TupaContext) GetCtx() context.Context {
 
 func (tc *TupaContext) SetContext(ctx context.Context) {
 	tc.Ctx = ctx
+}
+
+func (tc *TupaContext) SetURLVars(r *http.Request, vars map[string]string) *http.Request {
+	return WithVars(r, vars)
 }
 
 func NewTupaContextWithContext(w http.ResponseWriter, r *http.Request, ctx context.Context) *TupaContext {

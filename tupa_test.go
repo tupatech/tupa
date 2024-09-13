@@ -7,8 +7,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/gorilla/mux"
 )
 
 func BenchmarkDirectAccessSendString(b *testing.B) {
@@ -34,24 +32,21 @@ func BenchmarkDirectAccessSendString(b *testing.B) {
 
 func TestParam(t *testing.T) {
 	t.Run("Teste método Param com parametro", func(t *testing.T) {
-		req, err := http.NewRequest("GET", "/users/123", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		router := NewRouter()
 
-		// Colocando um parametro na rota da requisição
-		req = mux.SetURLVars(req, map[string]string{
-			"id": "123",
+		router.Handle("GET", "/users/{id}", func(w http.ResponseWriter, r *http.Request) {
+			tc := &TupaContext{Req: r, Resp: w}
+			id := tc.Param("id")
+			w.Write([]byte(id))
 		})
 
-		tc := &TupaContext{
-			Req: req,
-		}
+		req, _ := http.NewRequest("GET", "/users/123", nil)
+		rr := httptest.NewRecorder()
+		router.Mux.ServeHTTP(rr, req)
 
-		got := tc.Param("id")
-		want := "123"
-		if got != want {
-			t.Errorf("Parametro retornado %s, queria %s", got, want)
+		expected := "123"
+		if rr.Body.String() != expected {
+			t.Errorf("expected body %s, got %s", expected, rr.Body.String())
 		}
 	})
 
@@ -69,6 +64,49 @@ func TestParam(t *testing.T) {
 		want := ""
 		if got != want {
 			t.Errorf("Parametro retornado %s, queria %s", got, want)
+		}
+	})
+}
+
+func TestParams(t *testing.T) {
+	t.Run("Teste método Params com parametro", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users/123", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			Req: req,
+		}
+
+		// Colocando um parametro na rota da requisição
+		tc.Req = tc.SetURLVars(req, map[string]string{
+			"id": "123",
+		})
+
+		got := tc.Params()
+		want := map[string]string{
+			"id": "123",
+		}
+		if got["id"] != want["id"] {
+			t.Errorf("parametro retornado %v, queria %v", got, want)
+		}
+	})
+
+	t.Run("Teste método Params sem parametro", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/users", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tc := &TupaContext{
+			Req: req,
+		}
+
+		got := tc.Params()
+		want := map[string]string{}
+		if len(got) != len(want) {
+			t.Errorf("parametro retornado %v, queria %v", got, want)
 		}
 	})
 }
@@ -142,49 +180,6 @@ func TestQueryParams(t *testing.T) {
 
 		got := tc.QueryParams()
 		want := map[string][]string{}
-		if len(got) != len(want) {
-			t.Errorf("parametro retornado %v, queria %v", got, want)
-		}
-	})
-}
-
-func TestParams(t *testing.T) {
-	t.Run("Teste método Params com parametro", func(t *testing.T) {
-		req, err := http.NewRequest("GET", "/users/123", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Colocando um parametro na rota da requisição
-		req = mux.SetURLVars(req, map[string]string{
-			"id": "123",
-		})
-
-		tc := &TupaContext{
-			Req: req,
-		}
-
-		got := tc.Params()
-		want := map[string]string{
-			"id": "123",
-		}
-		if got["id"] != want["id"] {
-			t.Errorf("parametro retornado %v, queria %v", got, want)
-		}
-	})
-
-	t.Run("Teste método Params sem parametro", func(t *testing.T) {
-		req, err := http.NewRequest("GET", "/users", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		tc := &TupaContext{
-			Req: req,
-		}
-
-		got := tc.Params()
-		want := map[string]string{}
 		if len(got) != len(want) {
 			t.Errorf("parametro retornado %v, queria %v", got, want)
 		}

@@ -45,7 +45,6 @@ func (a *APIServer) executeMiddlewaresAsync(ctx *TupaContext, middlewares ...Mid
 	doneCh := make(chan []error, 1)
 
 	var wg sync.WaitGroup
-
 	var errorsSlice []error
 
 	// Executa cada middleware em uma goroutine separada
